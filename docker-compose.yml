@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: telegram_bot
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: python dailyfee.py  # Ensure this matches the script name
+    environment:
+      - TZ=Asia/Tehran  # Optional: Set the timezone to Tehran
+    restart: always
+
+networks:
+  bot-network:
+    driver: bridge

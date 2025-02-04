@@ -62,62 +62,144 @@ def format_number(number):
         # If it can't be converted to a number, return the number as is
         return number
 
+import json
+import time
+import requests
+import pytz
+from datetime import datetime
+
+def load_previous_prices():
+    """Load previous prices from a file."""
+    try:
+        with open("previous_prices.json", "r") as file:
+            return json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+def save_previous_prices(prices):
+    """Save current prices to a file."""
+    with open("previous_prices.json", "w") as file:
+        json.dump(prices, file)
+
+def get_price_change_emoji(old, new):
+    """Determine the emoji based on price change."""
+    if old is None:
+        return ""
+    elif new > old:
+        return " ⬆️"
+    elif new < old:
+        return " ⬇️"
+    else:
+        return ""
+
+def fetch_prices():
+    """Fetch gold and currency prices from the API."""
+    try:
+        # Fetch gold prices
+        gold_response = requests.get(GOLD_API_URL)
+        gold_response.raise_for_status()
+        gold_prices = gold_response.json()["data"]["prices"]
+
+        # Fetch currency prices
+        currency_response = requests.get(CURRENCY_API_URL)
+        currency_response.raise_for_status()
+        currency_prices = currency_response.json()["data"]["prices"]
+
+        return gold_prices, currency_prices
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching API data: {e}")
+        return None, None
+
 def format_message(gold_prices, currency_prices):
-    """Format the message with Persian translations and emojis."""
-    
-    # Get the current Jalali date and time
+    """Format message with price changes and emojis."""
+    previous_prices = load_previous_prices()
+    new_prices = {}
+
     jalali_datetime = get_current_jalali_datetime()
+    message = f"<b>🗓 تاریخ و زمان: {jalali_datetime}</b>\n\n🏅 <b>قیمت طلا و ارز:</b>\n"
 
-    # Gold prices message
-    gold_message = f"<b>🗓 تاریخ و زمان: {jalali_datetime}</b>\n\n🏅 <b>قیمت طلا:</b>\n"
-    gold_message += f"🔹 مثقال: {format_number(gold_prices['mesghal']['current'])} تومان\n"
-    gold_message += f"🔹 گرمی ۲۴ عیار: {format_number(gold_prices['geram24']['current'])} تومان\n"
-    gold_message += f"🔹 گرمی ۱۸ عیار: {format_number(gold_prices['geram18']['current'])} تومان\n"
-    gold_message += f"🔹 اونس جهانی: {format_number(gold_prices['ons']['current'])} دلار\n"
-    gold_message += f"🔹 سکه امامی: {format_number(gold_prices['sekee_emami']['current'])} تومان\n"
-    gold_message += f"🔹 سکه بهار آزادی: {format_number(gold_prices['seke_bahar']['current'])} تومان\n"
-    gold_message += f"🔹 نیم‌سکه: {format_number(gold_prices['nim']['current'])} تومان\n"
-    gold_message += f"🔹 ربع‌سکه: {format_number(gold_prices['rob']['current'])} تومان\n"
-    gold_message += f"🔹 گرمی: {format_number(gold_prices['gerami']['current'])} تومان\n\n"
+    # Gold prices
+    gold_labels = {
+        "mesghal": "مثقال",
+        "geram24": "گرمی ۲۴ عیار",
+        "geram18": "گرمی ۱۸ عیار",
+        "ons": "اونس جهانی",
+        "sekee_emami": "سکه امامی",
+        "seke_bahar": "سکه بهار آزادی",
+        "nim": "نیم‌سکه",
+        "rob": "ربع‌سکه",
+        "gerami": "گرمی"
+    }
+    for key, label in gold_labels.items():
+        old_price = previous_prices.get(key)
+        new_price = gold_prices.get(key, {}).get("current")
+        new_prices[key] = new_price
+        emoji = get_price_change_emoji(old_price, new_price)
+        message += f"🔹 {label}: {format_number(new_price)} تومان{emoji}\n"
 
-    # Important currencies message
-    important_currency_message = f"<b>🗓 تاریخ و زمان: {jalali_datetime}</b>\n\n💱 <b>قیمت ارز (مهم):</b>\n"
-    important_currency_message += f"💵 دلار آمریکا: {format_number(currency_prices['USD']['current'])} تومان\n"
-    important_currency_message += f"💶 یورو: {format_number(currency_prices['EUR']['current'])} تومان\n"
-    important_currency_message += f"💷 پوند انگلیس: {format_number(currency_prices['GBP']['current'])} تومان\n"
-    important_currency_message += f"💴 ین ژاپن: {format_number(currency_prices['JPY']['current'])} تومان\n"
-    important_currency_message += f"💴 دلار کانادا: {format_number(currency_prices['CAD']['current'])} تومان\n"
-    important_currency_message += f"💵 دلار استرالیا: {format_number(currency_prices['AUD']['current'])} تومان\n"
+    # Currency prices
+    currency_labels = {
+        "USD": "دلار آمریکا",
+        "EUR": "یورو",
+        "GBP": "پوند انگلیس",
+        "JPY": "ین ژاپن",
+        "CAD": "دلار کانادا",
+        "AUD": "دلار استرالیا",
+        "AED": "درهم امارات",
+        "TRY": "لیر ترکیه",
+        "CNY": "یوان چین",
+        "SEK": "کرون سوئد",
+        "DKK": "کرون دانمارک",
+        "NOK": "کرون نروژ",
+        "SAR": "ریال عربستان",
+        "QAR": "ریال قطر",
+        "OMR": "ریال عمان",
+        "IQD": "دینار عراق",
+        "HKD": "دلار هنگ‌کنگ",
+        "MYR": "رینگیت مالزی",
+        "RUB": "روبل روسیه",
+        "GEL": "لاری گرجستان",
+        "THB": "بات تایلند",
+        "SGD": "دلار سنگاپور",
+        "AZN": "منات آذربایجان",
+        "AMD": "درام ارمنستان",
+        "INR": "روپیه هند",
+        "NZD": "دلار نیوزلند",
+        "AFN": "افغانی افغانستان",
+        "BHD": "دینار بحرین",
+        "SYP": "لیر سوریه",
+        "PKR": "روپیه پاکستان"
+    }
+    for key, label in currency_labels.items():
+        old_price = previous_prices.get(key)
+        new_price = currency_prices.get(key, {}).get("current")
+        new_prices[key] = new_price
+        emoji = get_price_change_emoji(old_price, new_price)
+        message += f"🔹 {label}: {format_number(new_price)} تومان{emoji}\n"
 
-    # Other currencies message (with 🔹 instead of flags)
-    other_currency_message = f"<b>🗓 تاریخ و زمان: {jalali_datetime}</b>\n\n🌍 <b>قیمت ارز (دیگر):</b>\n"
-    other_currency_message += f"🔹 درهم امارات: {format_number(currency_prices['AED']['current'])} تومان\n"
-    other_currency_message += f"🔹 لیر ترکیه: {format_number(currency_prices['TRY']['current'])} تومان\n"
-    other_currency_message += f"🔹 یوان چین: {format_number(currency_prices['CNY']['current'])} تومان\n"
-    other_currency_message += f"🔹 کرون سوئد: {format_number(currency_prices['SEK']['current'])} تومان\n"
-    other_currency_message += f"🔹 کرون دانمارک: {format_number(currency_prices['DKK']['current'])} تومان\n"
-    other_currency_message += f"🔹 کرون نروژ: {format_number(currency_prices['NOK']['current'])} تومان\n"
-    other_currency_message += f"🔹 ریال عربستان: {format_number(currency_prices['SAR']['current'])} تومان\n"
-    other_currency_message += f"🔹 ریال قطر: {format_number(currency_prices['QAR']['current'])} تومان\n"
-    other_currency_message += f"🔹 ریال عمان: {format_number(currency_prices['OMR']['current'])} تومان\n"
-    other_currency_message += f"🔹 دینار عراق: {format_number(currency_prices['IQD']['current'])} تومان\n"
-    other_currency_message += f"🔹 دلار هنگ‌کنگ: {format_number(currency_prices['HKD']['current'])} تومان\n"
-    other_currency_message += f"🔹 رینگیت مالزی: {format_number(currency_prices['MYR']['current'])} تومان\n"
-    other_currency_message += f"🔹 روبل روسیه: {format_number(currency_prices['RUB']['current'])} تومان\n"
-    other_currency_message += f"🔹 لاری گرجستان: {format_number(currency_prices['GEL']['current'])} تومان\n"
-    other_currency_message += f"🔹 بات تایلند: {format_number(currency_prices['THB']['current'])} تومان\n"
-    other_currency_message += f"🔹 دلار سنگاپور: {format_number(currency_prices['SGD']['current'])} تومان\n"
-    other_currency_message += f"🔹 منات آذربایجان: {format_number(currency_prices['AZN']['current'])} تومان\n"
-    other_currency_message += f"🔹 درام ارمنستان: {format_number(currency_prices['AMD']['current'])} تومان\n"
-    other_currency_message += f"🔹 روپیه هند: {format_number(currency_prices['INR']['current'])} تومان\n"
-    other_currency_message += f"🔹 دلار نیوزلند: {format_number(currency_prices['NZD']['current'])} تومان\n"
-    other_currency_message += f"🔹 افغانی افغانستان: {format_number(currency_prices['AFN']['current'])} تومان\n"
-    other_currency_message += f"🔹 دینار بحرین: {format_number(currency_prices['BHD']['current'])} تومان\n"
-    other_currency_message += f"🔹 لیر سوریه: {format_number(currency_prices['SYP']['current'])} تومان\n"
-    other_currency_message += f"🔹 روپیه پاکستان: {format_number(currency_prices['PKR']['current'])} تومان\n"
+    save_previous_prices(new_prices)
+    return message
 
-    # Return all parts as separate messages
-    return gold_message, important_currency_message, other_currency_message
+def check_time_and_notify():
+    """Check the time and send message at 15, 30, 45, and 00 minute of each hour."""
+    tehran_tz = pytz.timezone("Asia/Tehran")
+    
+    while True:
+        now = datetime.now(tehran_tz)
+        hour, minute, weekday = now.hour, now.minute, now.weekday()
+        
+        if 9 <= hour < 21 and weekday in [0, 1, 2, 3, 6]:  # Saturday (6) to Wednesday (3)
+            if minute in [0, 15, 30, 45]:
+                gold_prices, currency_prices = fetch_prices()
+                if gold_prices and currency_prices:
+                    message = format_message(gold_prices, currency_prices)
+                    send_to_telegram(message)
+                    print(f"Message sent at {now.strftime('%H:%M:%S')} Tehran time")
+        
+        time.sleep(60 - now.second)
+
+if __name__ == "__main__":
+    check_time_and_notify()
 
 def fetch_and_notify():
     """Fetch prices and send the formatted message to Telegram."""

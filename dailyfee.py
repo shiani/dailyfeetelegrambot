@@ -134,14 +134,17 @@ def fetch_and_notify():
 
 def check_time_and_notify():
     """Check the time and send message at 15, 30, 45, and 00 minute of each hour."""
+    tehran_tz = pytz.timezone("Asia/Tehran")
+    
     while True:
-        now = datetime.now()
-        minute = now.minute
-
-        # Only proceed if it's 15, 30, 45, or 00 minutes
-        if minute in [0, 15, 30, 45]:
-            fetch_and_notify()
-            print(f"Message sent at {now.strftime('%H:%M:%S')}")
+        now = datetime.now(tehran_tz)
+        hour, minute, weekday = now.hour, now.minute, now.weekday()
+        
+        # Check if the time is between 9 AM and 8 PM (21 is excluded) and it's Saturday-Wednesday (0-3)
+        if 9 <= hour < 21 and weekday in [0, 1, 2, 3, 6]:  # Saturday (6) to Wednesday (3)
+            if minute in [0, 15, 30, 45]:
+                fetch_and_notify()
+                print(f"Message sent at {now.strftime('%H:%M:%S')} Tehran time")
         
         # Sleep until the next full minute
         time.sleep(60 - now.second)

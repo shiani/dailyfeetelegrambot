@@ -57,6 +57,7 @@ def format_number(number):
     except (ValueError, TypeError):
         return number
 
+        
 def format_message(gold_prices, currency_prices):
     """
     Format a message showing the prices.
@@ -65,13 +66,11 @@ def format_message(gold_prices, currency_prices):
     An emoji is added only if the displayed value has changed.
     """
     previous_prices = load_previous_prices()
-    # We will store the displayed prices (i.e. after dividing by 10) in new_prices.
     new_prices = {}
 
     jalali_datetime = get_current_jalali_datetime()
     message = f"<b>🗓 تاریخ و زمان:{jalali_datetime}</b>\n\n🏅 <b>قیمت طلا و ارز:</b>\n"
 
-    # Define labels for gold and currency items.
     gold_labels = {
         "mesghal": "مثقال",
         "geram24": "گرمی ۲۴ عیار",
@@ -120,20 +119,24 @@ def format_message(gold_prices, currency_prices):
     for key, label in gold_labels.items():
         raw_new_price = gold_prices.get(key, {}).get("current")
         try:
-            # Calculate the displayed price (divide raw API value by 10)
             new_display = int(float(raw_new_price) / 10)
         except (TypeError, ValueError):
             new_display = None
 
-        # Retrieve the old displayed price (if any)
+        # Convert the previously stored value to an int if possible
         old_display = previous_prices.get(key)
+        if old_display is not None:
+            try:
+                old_display = int(old_display)
+            except (ValueError, TypeError):
+                old_display = None
+
         emoji = ""
         if old_display is not None and new_display is not None:
             if new_display > old_display:
                 emoji = " ⬆️"
             elif new_display < old_display:
                 emoji = " ⬇️"
-        # Append the line using the formatted (display) price
         message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
         new_prices[key] = new_display
 
@@ -146,6 +149,12 @@ def format_message(gold_prices, currency_prices):
             new_display = None
 
         old_display = previous_prices.get(key)
+        if old_display is not None:
+            try:
+                old_display = int(old_display)
+            except (ValueError, TypeError):
+                old_display = None
+
         emoji = ""
         if old_display is not None and new_display is not None:
             if new_display > old_display:
@@ -155,9 +164,9 @@ def format_message(gold_prices, currency_prices):
         message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
         new_prices[key] = new_display
 
-    # Update the stored prices with the displayed values
     save_previous_prices(new_prices)
     return message
+
 
 def fetch_prices():
     """Fetch gold and currency prices from the API."""

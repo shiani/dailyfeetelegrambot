@@ -3,6 +3,7 @@ import requests
 import telebot
 import jdatetime
 import pytz
+import json
 from datetime import datetime
 
 # Replace with your actual API code and Telegram Bot details
@@ -20,11 +21,9 @@ def get_current_jalali_datetime():
     tehran_tz = pytz.timezone("Asia/Tehran")
     now = datetime.now(tehran_tz)
     jalali_date = jdatetime.date.fromgregorian(date=now.date())
-    # Format the Jalali date as year/month/day
     jalali_date_str = f"{jalali_date.year}/{jalali_date.month:02d}/{jalali_date.day:02d}"
-    time_str = now.strftime("%H:%M")  # Format time as HH:MM:SS
+    time_str = now.strftime("%H:%M")
     return f" {time_str} - {jalali_date_str}"
-
 
 def send_to_telegram(message):
     """Send a message to the specified Telegram chat using the bot."""
@@ -33,40 +32,6 @@ def send_to_telegram(message):
         print("Message sent to Telegram!")
     except Exception as e:
         print(f"Error sending message to Telegram: {e}")
-
-def fetch_prices():
-    """Fetch gold and currency prices from the API."""
-    try:
-        # Fetch gold prices
-        gold_response = requests.get(GOLD_API_URL)
-        gold_response.raise_for_status()
-        gold_prices = gold_response.json()["data"]["prices"]
-
-        # Fetch currency prices
-        currency_response = requests.get(CURRENCY_API_URL)
-        currency_response.raise_for_status()
-        currency_prices = currency_response.json()["data"]["prices"]
-
-        return gold_prices, currency_prices
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching API data: {e}")
-        return None, None
-    
-def format_number(number):
-    """Format the number with commas as thousands separators."""
-    try:
-        # Ensure the number is treated as a number (int or float)
-        number = float(number) / 10
-        return "{:,.0f}".format(number)  # This will add commas and remove decimals
-    except ValueError:
-        # If it can't be converted to a number, return the number as is
-        return number
-
-import json
-import time
-import requests
-import pytz
-from datetime import datetime
 
 def load_previous_prices():
     """Load previous prices from a file."""
@@ -82,12 +47,22 @@ def save_previous_prices(prices):
         json.dump(prices, file)
 
 def get_price_change_emoji(old, new):
-    """Determine the emoji based on price change."""
-    if old is None:
+    """
+    Determine the emoji based on price change.
+    Prices are first cast to float.
+    Returns an up arrow if new > old, a down arrow if new < old,
+    and an empty string if unchanged or if conversion fails.
+    """
+    try:
+        # Convert values to float for proper comparison
+        old_val = float(old)
+        new_val = float(new)
+    except (TypeError, ValueError):
         return ""
-    elif new > old:
+    
+    if new_val > old_val:
         return " ⬆️"
-    elif new < old:
+    elif new_val < old_val:
         return " ⬇️"
     else:
         return ""
@@ -95,12 +70,10 @@ def get_price_change_emoji(old, new):
 def fetch_prices():
     """Fetch gold and currency prices from the API."""
     try:
-        # Fetch gold prices
         gold_response = requests.get(GOLD_API_URL)
         gold_response.raise_for_status()
         gold_prices = gold_response.json()["data"]["prices"]
 
-        # Fetch currency prices
         currency_response = requests.get(CURRENCY_API_URL)
         currency_response.raise_for_status()
         currency_prices = currency_response.json()["data"]["prices"]
@@ -110,15 +83,27 @@ def fetch_prices():
         print(f"Error fetching API data: {e}")
         return None, None
 
+def format_number(number):
+    """Format the number with commas as thousands separators."""
+    try:
+        # Convert to float and divide by 10 (as in your original code)
+        number = float(number) / 10
+        return "{:,.0f}".format(number)
+    except ValueError:
+        return number
+
 def format_message(gold_prices, currency_prices):
-    """Format message with price changes and emojis."""
+    """
+    Format a single message that shows the current prices with
+    an emoji only when the price has changed compared to the previously stored price.
+    """
     previous_prices = load_previous_prices()
     new_prices = {}
 
     jalali_datetime = get_current_jalali_datetime()
-    message = f"<b>🗓 تاریخ و زمان: {jalali_datetime}</b>\n\n🏅 <b>قیمت طلا و ارز:</b>\n"
+    message = f"<b>🗓 تاریخ و زمان:{jalali_datetime}</b>\n\n🏅 <b>قیمت طلا و ارز:</b>\n"
 
-    # Gold prices
+    # Define the labels for gold and currency items.
     gold_labels = {
         "mesghal": "مثقال",
         "geram24": "گرمی ۲۴ عیار",
@@ -130,14 +115,6 @@ def format_message(gold_prices, currency_prices):
         "rob": "ربع‌سکه",
         "gerami": "گرمی"
     }
-    for key, label in gold_labels.items():
-        old_price = previous_prices.get(key)
-        new_price = gold_prices.get(key, {}).get("current")
-        new_prices[key] = new_price
-        emoji = get_price_change_emoji(old_price, new_price)
-        message += f"🔹 {label}: {format_number(new_price)} تومان{emoji}\n"
-
-    # Currency prices
     currency_labels = {
         "USD": "دلار آمریکا",
         "EUR": "یورو",
@@ -170,25 +147,43 @@ def format_message(gold_prices, currency_prices):
         "SYP": "لیر سوریه",
         "PKR": "روپیه پاکستان"
     }
+
+    # Process gold prices.
+    for key, label in gold_labels.items():
+        old_price = previous_prices.get(key)
+        # Use .get("current") safely (if key or "current" is missing, new_price becomes None)
+        new_price = gold_prices.get(key, {}).get("current")
+        new_prices[key] = new_price
+        emoji = ""
+        # Only add emoji if both old and new prices exist
+        if old_price is not None and new_price is not None:
+            emoji = get_price_change_emoji(old_price, new_price)
+        message += f"🔹 {label}: {format_number(new_price)} تومان{emoji}\n"
+
+    # Process currency prices.
     for key, label in currency_labels.items():
         old_price = previous_prices.get(key)
         new_price = currency_prices.get(key, {}).get("current")
         new_prices[key] = new_price
-        emoji = get_price_change_emoji(old_price, new_price)
+        emoji = ""
+        if old_price is not None and new_price is not None:
+            emoji = get_price_change_emoji(old_price, new_price)
         message += f"🔹 {label}: {format_number(new_price)} تومان{emoji}\n"
 
+    # Update the stored prices for the next comparison.
     save_previous_prices(new_prices)
     return message
 
 def check_time_and_notify():
-    """Check the time and send message at 15, 30, 45, and 00 minute of each hour."""
+    """Check the time and send a message at 00, 15, 30, and 45 minutes past each hour."""
     tehran_tz = pytz.timezone("Asia/Tehran")
     
     while True:
         now = datetime.now(tehran_tz)
         hour, minute, weekday = now.hour, now.minute, now.weekday()
         
-        if 9 <= hour < 21 and weekday in [0, 1, 2, 3, 6]:  # Saturday (6) to Wednesday (3)
+        # Send only between 9 AM and 8 PM and on specific weekdays (Saturday to Wednesday)
+        if 9 <= hour < 21 and weekday in [0, 1, 2, 3, 6]:
             if minute in [0, 15, 30, 45]:
                 gold_prices, currency_prices = fetch_prices()
                 if gold_prices and currency_prices:
@@ -196,39 +191,7 @@ def check_time_and_notify():
                     send_to_telegram(message)
                     print(f"Message sent at {now.strftime('%H:%M:%S')} Tehran time")
         
-        time.sleep(60 - now.second)
-
-if __name__ == "__main__":
-    check_time_and_notify()
-
-def fetch_and_notify():
-    """Fetch prices and send the formatted message to Telegram."""
-    gold_prices, currency_prices = fetch_prices()
-    if gold_prices and currency_prices:
-        gold_message, important_currency_message, other_currency_message = format_message(gold_prices, currency_prices)
-        
-        # Send messages to Telegram
-        send_to_telegram(gold_message)
-        send_to_telegram(important_currency_message)
-        send_to_telegram(other_currency_message)
-    else:
-        pass
-
-def check_time_and_notify():
-    """Check the time and send message at 15, 30, 45, and 00 minute of each hour."""
-    tehran_tz = pytz.timezone("Asia/Tehran")
-    
-    while True:
-        now = datetime.now(tehran_tz)
-        hour, minute, weekday = now.hour, now.minute, now.weekday()
-        
-        # Check if the time is between 9 AM and 8 PM (21 is excluded) and it's Saturday-Wednesday (0-3)
-        if 9 <= hour < 21 and weekday in [0, 1, 2, 3, 6]:  # Saturday (6) to Wednesday (3)
-            if minute in [0, 15, 30, 45]:
-                fetch_and_notify()
-                print(f"Message sent at {now.strftime('%H:%M:%S')} Tehran time")
-        
-        # Sleep until the next full minute
+        # Sleep until the start of the next minute.
         time.sleep(60 - now.second)
 
 if __name__ == "__main__":

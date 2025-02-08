@@ -72,23 +72,26 @@ def format_message(gold_prices, currency_prices):
     message = f"<b>🗓 تاریخ و زمان:{jalali_datetime}</b>\n\n🏅 <b>قیمت طلا و ارز:</b>\n"
 
     gold_labels = {
-        "mesghal": "مثقال",
-        "geram24": "گرمی ۲۴ عیار",
         "geram18": "گرمی ۱۸ عیار",
-        "ons": "اونس جهانی",
+        "geram24": "گرمی ۲۴ عیار",
         "sekee_emami": "سکه امامی",
         "seke_bahar": "سکه بهار آزادی",
         "nim": "نیم‌سکه",
         "rob": "ربع‌سکه",
-        "gerami": "گرمی"
+        "gerami": "گرمی",
+        "mesghal": "مثقال",
+        "ons": "اونس جهانی",
     }
-    currency_labels = {
+
+    important_currency_labels = {
         "USD": "دلار آمریکا",
         "EUR": "یورو",
         "GBP": "پوند انگلیس",
-        "JPY": "ین ژاپن",
         "CAD": "دلار کانادا",
         "AUD": "دلار استرالیا",
+    }
+
+    other_currency_labels = {
         "AED": "درهم امارات",
         "TRY": "لیر ترکیه",
         "CNY": "یوان چین",
@@ -101,18 +104,18 @@ def format_message(gold_prices, currency_prices):
         "IQD": "دینار عراق",
         "HKD": "دلار هنگ‌کنگ",
         "MYR": "رینگیت مالزی",
-        "RUB": "روبل روسیه",
         "GEL": "لاری گرجستان",
         "THB": "بات تایلند",
         "SGD": "دلار سنگاپور",
         "AZN": "منات آذربایجان",
-        "AMD": "درام ارمنستان",
         "INR": "روپیه هند",
         "NZD": "دلار نیوزلند",
         "AFN": "افغانی افغانستان",
         "BHD": "دینار بحرین",
+        "RUB": "روبل روسیه",
+        "PKR": "روپیه پاکستان",
+        "AMD": "درام ارمنستان",
         "SYP": "لیر سوریه",
-        "PKR": "روپیه پاکستان"
     }
 
     # Process gold prices.
@@ -139,9 +142,9 @@ def format_message(gold_prices, currency_prices):
                 emoji = " ⬇️"
         message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
         new_prices[key] = new_display
-
+    message += "〰️〰️〰️〰️〰️〰️〰️"
     # Process currency prices.
-    for key, label in currency_labels.items():
+    for key, label in important_currency_labels.items():
         raw_new_price = currency_prices.get(key, {}).get("current")
         try:
             new_display = int(float(raw_new_price) / 10)
@@ -163,7 +166,30 @@ def format_message(gold_prices, currency_prices):
                 emoji = " ⬇️"
         message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
         new_prices[key] = new_display
+        
+    message += "〰️〰️〰️〰️〰️〰️〰️"
+    for key, label in other_currency_labels.items():
+        raw_new_price = currency_prices.get(key, {}).get("current")
+        try:
+            new_display = int(float(raw_new_price) / 10)
+        except (TypeError, ValueError):
+            new_display = None
 
+        old_display = previous_prices.get(key)
+        if old_display is not None:
+            try:
+                old_display = int(old_display)
+            except (ValueError, TypeError):
+                old_display = None
+
+        emoji = ""
+        if old_display is not None and new_display is not None:
+            if new_display > old_display:
+                emoji = " ⬆️"
+            elif new_display < old_display:
+                emoji = " ⬇️"
+        message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
+        new_prices[key] = new_display
     save_previous_prices(new_prices)
     return message
 

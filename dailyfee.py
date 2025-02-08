@@ -142,7 +142,7 @@ def format_message(gold_prices, currency_prices):
                 emoji = " ⬇️"
         message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
         new_prices[key] = new_display
-    message += "〰️〰️〰️〰️〰️〰️〰️"
+    message += "-----------"
     # Process currency prices.
     for key, label in important_currency_labels.items():
         raw_new_price = currency_prices.get(key, {}).get("current")
@@ -166,8 +166,8 @@ def format_message(gold_prices, currency_prices):
                 emoji = " ⬇️"
         message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
         new_prices[key] = new_display
-        
-    message += "〰️〰️〰️〰️〰️〰️〰️"
+
+    message += "-----------"
     for key, label in other_currency_labels.items():
         raw_new_price = currency_prices.get(key, {}).get("current")
         try:

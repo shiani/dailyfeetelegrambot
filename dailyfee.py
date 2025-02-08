@@ -57,7 +57,7 @@ def format_number(number):
     except (ValueError, TypeError):
         return number
 
-        
+
 def format_message(gold_prices, currency_prices):
     """
     Format a message showing the prices.
@@ -193,7 +193,7 @@ def check_time_and_notify():
         hour, minute, weekday = now.hour, now.minute, now.weekday()
         
         # Send only between 9 AM and 8 PM and on Saturday to Wednesday (weekday 6,0,1,2,3)
-        if 9 <= hour < 21 and weekday in [0, 1, 2, 3, 6]:
+        if 9 <= hour < 21:
             if minute in [0, 15, 30, 45]:
                 gold_prices, currency_prices = fetch_prices()
                 if gold_prices and currency_prices:

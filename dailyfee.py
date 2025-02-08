@@ -83,6 +83,20 @@ def format_message(gold_prices, currency_prices):
         "ons": "اونس جهانی",
     }
 
+    # Define proper emojis for gold items.
+    # You can change these as you see fit.
+    gold_emoji_map = {
+        "geram18": "🥇",
+        "geram24": "🥇",
+        "sekee_emami": "🪙",
+        "seke_bahar": "🪙",
+        "nim": "🪙",
+        "rob": "🪙",
+        "gerami": "💰",
+        "mesghal": "💎",
+        "ons": "⚖️",
+    }
+
     important_currency_labels = {
         "USD": "دلار آمریکا",
         "EUR": "یورو",
@@ -118,6 +132,39 @@ def format_message(gold_prices, currency_prices):
         "SYP": "لیر سوریه",
     }
 
+    # Define proper emojis for currency items using country flags when applicable.
+    currency_emojis = {
+        "USD": "🇺🇸",
+        "EUR": "🇪🇺",
+        "GBP": "🇬🇧",
+        "CAD": "🇨🇦",
+        "AUD": "🇦🇺",
+        "AED": "🇦🇪",
+        "TRY": "🇹🇷",
+        "CNY": "🇨🇳",
+        "SEK": "🇸🇪",
+        "DKK": "🇩🇰",
+        "NOK": "🇳🇴",
+        "SAR": "🇸🇦",
+        "QAR": "🇶🇦",
+        "OMR": "🇴🇲",
+        "IQD": "🇮🇶",
+        "HKD": "🇭🇰",
+        "MYR": "🇲🇾",
+        "GEL": "🇬🇪",
+        "THB": "🇹🇭",
+        "SGD": "🇸🇬",
+        "AZN": "🇦🇿",
+        "INR": "🇮🇳",
+        "NZD": "🇳🇿",
+        "AFN": "🇦🇫",
+        "BHD": "🇧🇭",
+        "RUB": "🇷🇺",
+        "PKR": "🇵🇰",
+        "AMD": "🇦🇲",
+        "SYP": "🇸🇾",
+    }
+
     # Process gold prices.
     for key, label in gold_labels.items():
         raw_new_price = gold_prices.get(key, {}).get("current")
@@ -126,7 +173,6 @@ def format_message(gold_prices, currency_prices):
         except (TypeError, ValueError):
             new_display = None
 
-        # Convert the previously stored value to an int if possible
         old_display = previous_prices.get(key)
         if old_display is not None:
             try:
@@ -134,16 +180,18 @@ def format_message(gold_prices, currency_prices):
             except (ValueError, TypeError):
                 old_display = None
 
-        emoji = ""
+        change_emoji = ""
         if old_display is not None and new_display is not None:
             if new_display > old_display:
-                emoji = " ⬆️"
+                change_emoji = " ⬆️"
             elif new_display < old_display:
-                emoji = " ⬇️"
-        message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
+                change_emoji = " ⬇️"
+
+        line_emoji = gold_emoji_map.get(key, "💰")
+        message += f"{line_emoji} {label}: {format_number(raw_new_price)} تومان{change_emoji}\n"
         new_prices[key] = new_display
     message += "\n"
-    # Process currency prices.
+
     for key, label in important_currency_labels.items():
         raw_new_price = currency_prices.get(key, {}).get("current")
         try:
@@ -158,13 +206,15 @@ def format_message(gold_prices, currency_prices):
             except (ValueError, TypeError):
                 old_display = None
 
-        emoji = ""
+        change_emoji = ""
         if old_display is not None and new_display is not None:
             if new_display > old_display:
-                emoji = " ⬆️"
+                change_emoji = " ⬆️"
             elif new_display < old_display:
-                emoji = " ⬇️"
-        message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
+                change_emoji = " ⬇️"
+
+        line_emoji = currency_emojis.get(key, "💱")
+        message += f"{line_emoji} {label}: {format_number(raw_new_price)} تومان{change_emoji}\n"
         new_prices[key] = new_display
 
     message += "\n"
@@ -182,13 +232,14 @@ def format_message(gold_prices, currency_prices):
             except (ValueError, TypeError):
                 old_display = None
 
-        emoji = ""
+        change_emoji = ""
         if old_display is not None and new_display is not None:
             if new_display > old_display:
-                emoji = " ⬆️"
+                change_emoji = " ⬆️"
             elif new_display < old_display:
-                emoji = " ⬇️"
-        message += f"🔹 {label}: {format_number(raw_new_price)} تومان{emoji}\n"
+                change_emoji = " ⬇️"
+        line_emoji = currency_emojis.get(key, "💱")
+        message += f"{line_emoji} {label}: {format_number(raw_new_price)} تومان{change_emoji}\n"
         new_prices[key] = new_display
     save_previous_prices(new_prices)
     return message

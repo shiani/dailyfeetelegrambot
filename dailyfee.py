@@ -80,7 +80,6 @@ def format_message(gold_prices, currency_prices):
         "rob": "ربع‌سکه",
         "gerami": "گرمی",
         "mesghal": "مثقال",
-        "ons": "اونس جهانی",
     }
 
     # Define proper emojis for gold items.
@@ -94,7 +93,6 @@ def format_message(gold_prices, currency_prices):
         "rob": "🪙",
         "gerami": "💰",
         "mesghal": "💎",
-        "ons": "⚖️",
     }
 
     important_currency_labels = {
